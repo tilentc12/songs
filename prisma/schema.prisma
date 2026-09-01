@@ -1,0 +1,85 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Track {
+  id           String   @id @default(cuid())
+  title        String
+  artist       String
+  album        String?
+  releaseYear  Int
+  genre        String   // "pop", "rock", "hiphop", "electronic", "rnb", "soundtrack", "indie", "latin"
+  decade       String   // "70s", "80s", "90s", "00s", "10s", "20s"
+  difficulty   String   // "easy", "medium", "hard", "expert", "impossible"
+  popularity   Int      // 1-100 score
+  previewUrl   String   // iTunes / CDN audio preview URL
+  deezerUrl    String?  // Fallback preview URL
+  coverUrl     String   // High-res album artwork URL
+  spotifyUrl   String?
+  appleUrl     String?
+  isExplicit   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  dailyPuzzles DailyPuzzle[]
+  guesses      GuessHistory[]
+
+  @@index([difficulty])
+  @@index([genre])
+  @@index([decade])
+  @@index([popularity])
+}
+
+model DailyPuzzle {
+  id           String   @id @default(cuid())
+  date         String   // "YYYY-MM-DD"
+  difficulty   String   // "easy", "medium", "hard", "expert", "impossible"
+  puzzleNumber Int
+  trackId      String
+  track        Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@unique([date, difficulty])
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String?  @unique
+  displayName String?
+  avatarUrl   String?
+  showOnBoard Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  stats       UserStats?
+  guesses     GuessHistory[]
+}
+
+model UserStats {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gamesPlayed      Int      @default(0)
+  gamesWon         Int      @default(0)
+  currentStreak    Int      @default(0)
+  maxStreak        Int      @default(0)
+  distributionJson String   @default("[0,0,0,0,0,0]") // 0.1s, 0.5s, 2s, 8s, 15s, failed
+  totalPoints      Int      @default(0)
+  updatedAt        DateTime @updatedAt
+}
+
+model GuessHistory {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  mode      String   // "unlimited", "daily", "survival", "playlist"
+  stageWon  Int?     // 0=0.1s, 1=0.5s, 2=2s, 3=8s, 4=15s, null=lost
+  attempts  Int
+  points    Int
+  playedAt  DateTime @default(now())
+}
